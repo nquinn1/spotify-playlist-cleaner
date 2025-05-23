@@ -1,0 +1,21 @@
+=== HEADLESS BROWSER SCRAPER STARTED at 2025-05-23 22:12:35.291785 ===
+[22:12:52] 🏥 Health check requested
+[22:12:52] ==================================================
+[22:12:52] 🚨 HEADLESS BROWSER SCRAPE REQUEST!
+[22:12:52] ==================================================
+[22:12:52] 🎯 Headless browser scrape: https://open.spotify.com/playlist/37i9dQZF1E8OxfG5g6bSqJ
+[22:12:52] 📝 Extracted playlist ID: 37i9dQZF1E8OxfG5g6bSqJ
+[22:12:52] 🚀 Starting headless browser for: https://open.spotify.com/playlist/37i9dQZF1E8OxfG5g6bSqJ
+[22:12:52] 🔧 Trying Chrome headless browser...
+[22:12:52] 🔧 Using webdriver-manager for Chrome
+[22:12:53] 📡 Loading playlist page...
+[22:12:55] ⏳ Waiting for page to load...
+[22:14:01] 🔍 Extracting tracks from loaded page...
+[22:14:01] 📜 Scrolling to load all tracks...
+[22:14:03]    Scroll 1: Found 0 track elements
+[22:14:03]    No new tracks loaded, stopping scroll
+[22:14:03] 🎯 Finished scrolling, found 0 total track elements
+[22:14:03] 🎵 JavaScript extraction found 50 unique tracks after scrolling
+[22:14:03] 🎵 Successfully extracted 50 tracks with Chrome
+[22:14:05] ✅ Final result: 50 valid tracks
+[22:14:05] ✅ Headless browser scraping completed: 50 tracks
