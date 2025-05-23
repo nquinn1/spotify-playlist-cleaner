@@ -9,6 +9,7 @@ from flask_cors import CORS
 import re
 import os
 import time
+import glob
 from datetime import datetime
 
 app = Flask(__name__)
@@ -40,15 +41,41 @@ def extract_playlist_id(url):
     raise ValueError('Invalid Spotify playlist URL')
 
 def setup_chrome_driver():
-    """Set up Chrome headless driver for cloud deployment"""
+    """Set up Chrome/Chromium headless driver for cloud deployment"""
     try:
         from selenium import webdriver
         from selenium.webdriver.chrome.service import Service
         from selenium.webdriver.chrome.options import Options
+        import os
         
         options = Options()
-        # Essential cloud Chrome options
-        options.add_argument('--headless=new')  # Use new headless mode
+        
+        # Check if we're on Railway (Chromium) or local (Chrome)
+        chrome_bin = os.environ.get('CHROME_BIN')
+        chromedriver_path = os.environ.get('CHROMEDRIVER_PATH')
+        
+        if chrome_bin or os.path.exists('/nix'):
+            log_message("🔧 Detected Railway/Nix environment, using Chromium")
+            
+            # Try to find Chromium binary
+            chromium_paths = [
+                chrome_bin,
+                '/nix/store/*/bin/chromium',
+                '/usr/bin/chromium',
+                '/usr/bin/chromium-browser'
+            ]
+            
+            import glob
+            for path_pattern in chromium_paths:
+                if path_pattern:
+                    found_paths = glob.glob(path_pattern)
+                    if found_paths:
+                        options.binary_location = found_paths[0]
+                        log_message(f"📍 Using Chromium at: {found_paths[0]}")
+                        break
+        
+        # Essential cloud Chrome/Chromium options
+        options.add_argument('--headless=new')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-gpu')
@@ -57,31 +84,47 @@ def setup_chrome_driver():
         options.add_argument('--remote-debugging-port=9222')
         options.add_argument('--disable-extensions')
         options.add_argument('--disable-plugins')
-        options.add_argument('--disable-images')  # Faster loading
+        options.add_argument('--disable-images')
         options.add_argument('--disable-background-timer-throttling')
         options.add_argument('--disable-backgrounding-occluded-windows')
         options.add_argument('--disable-renderer-backgrounding')
         options.add_argument('--disable-features=TranslateUI')
         options.add_argument('--disable-ipc-flooding-protection')
+        options.add_argument('--single-process')  # Use less memory
+        options.add_argument('--memory-pressure-off')
         options.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
         
-        # Try different driver setup approaches
+        # Try to use Nix-provided chromedriver first
+        if chromedriver_path:
+            try:
+                import glob
+                driver_paths = glob.glob(chromedriver_path)
+                if driver_paths:
+                    log_message(f"🔧 Using Nix chromedriver at: {driver_paths[0]}")
+                    service = Service(driver_paths[0])
+                    driver = webdriver.Chrome(service=service, options=options)
+                    log_message("✅ Nix chromedriver created successfully")
+                    return driver
+            except Exception as e:
+                log_message(f"❌ Nix chromedriver failed: {e}")
+        
+        # Fallback to webdriver-manager
         try:
             from webdriver_manager.chrome import ChromeDriverManager
-            log_message("🔧 Using webdriver-manager for Chrome (cloud)")
+            log_message("🔧 Using webdriver-manager for Chrome/Chromium")
             service = Service(ChromeDriverManager().install())
             driver = webdriver.Chrome(service=service, options=options)
-            log_message("✅ Chrome driver created successfully")
+            log_message("✅ Chrome/Chromium driver created successfully with webdriver-manager")
             return driver
         except Exception as e:
             log_message(f"❌ webdriver-manager failed: {e}")
             log_message("🔧 Trying system ChromeDriver")
             driver = webdriver.Chrome(options=options)
-            log_message("✅ System Chrome driver created successfully")
+            log_message("✅ System Chrome/Chromium driver created successfully")
             return driver
             
     except Exception as e:
-        log_message(f"❌ Chrome setup failed completely: {e}")
+        log_message(f"❌ Chrome/Chromium setup failed completely: {e}")
         raise
 
 def setup_firefox_driver():
