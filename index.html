@@ -274,10 +274,16 @@
             const protocol = window.location.protocol;
             const isLocalhost = host.includes('127.0.0.1') || host.includes('localhost');
             
+            console.log('🔍 URL Detection Debug:');
+            console.log('  Current host:', host);
+            console.log('  Protocol:', protocol);
+            console.log('  Is localhost?', isLocalhost);
+            
             const redirectUri = `${protocol}//${host}/`;
-            const backendUrl = isLocalhost ? 
-                `${protocol}//${host}` : 
-                `${protocol}//${host}`; // Same host for deployed version
+            const backendUrl = `${protocol}//${host}`; // Always use same host
+            
+            console.log('  Redirect URI:', redirectUri);
+            console.log('  Backend URL:', backendUrl);
             
             return { redirectUri, backendUrl };
         };
