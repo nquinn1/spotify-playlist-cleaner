@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Playlist Cleaner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1DB954, #191414);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #1DB954, #fff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .login-section {
+            text-align: center;
+        }
+
+        .btn {
+            background: #1DB954;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            background: #1ed760;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(29, 185, 84, 0.4);
+        }
+
+        .btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .input-group {
+            margin: 20px 0;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .input-group input, .input-group textarea {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .input-group input::placeholder, .input-group textarea::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .input-group input:focus, .input-group textarea:focus {
+            outline: none;
+            border-color: #1DB954;
+            box-shadow: 0 0 0 2px rgba(29, 185, 84, 0.3);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .status.success {
+            background: rgba(29, 185, 84, 0.2);
+            border: 1px solid #1DB954;
+        }
+
+        .status.error {
+            background: rgba(220, 53, 69, 0.2);
+            border: 1px solid #dc3545;
+        }
+
+        .status.loading {
+            background: rgba(255, 193, 7, 0.2);
+            border: 1px solid #ffc107;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .user-info img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+        }
+
+        .playlist-form {
+            text-align: center;
+        }
+
+        .instructions {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .instructions h3 {
+            margin-bottom: 15px;
+            color: #1DB954;
+        }
+
+        .instructions ol {
+            margin-left: 20px;
+        }
+
+        .instructions li {
+            margin: 10px 0;
+            line-height: 1.5;
+        }
+
+        .instructions code {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎵 Spotify Playlist Cleaner</h1>
+            <p>Remove Spotify's personalization to discover truly new music. Transform "Made for You" playlists back to their original, discovery-focused versions.</p>
+        </div>
+
+        <!-- Login Section -->
+        <div id="loginSection" class="card login-section">
+            <h2>Connect Your Spotify Account</h2>
+            <p style="margin: 20px 0;">To get started, we need to connect to your Spotify account to read and create playlists.</p>
+            <button id="loginBtn" class="btn">Login with Spotify</button>
+        </div>
+
+        <!-- Main App Section -->
+        <div id="appSection" class="card hidden">
+            <div id="userInfo" class="user-info"></div>
+            
+            <div class="instructions">
+                <h3>How to use:</h3>
+                <ol>
+                    <li>Go to Spotify and find a playlist you want to "clean":
+                        <ul style="margin: 10px 0; padding-left: 20px;">
+                            <li><strong>Song Radio playlists</strong> (the main target!)</li>
+                            <li><strong>Daily Mix playlists</strong></li>
+                            <li><strong>Any "Made for You" playlist</strong></li>
+                            <li><strong>Regular playlists</strong> work too</li>
+                        </ul>
+                    </li>
+                    <li>Click "Share" → "Copy link to playlist"</li>
+                    <li>Paste the link below and give your new playlist a name</li>
+                    <li>Click "Clean Playlist" - the app will:
+                        <ul style="margin: 10px 0; padding-left: 20px;">
+                            <li>🔄 Try API access first (for regular playlists)</li>
+                            <li>🚀 Use headless browser to execute JavaScript</li>
+                            <li>📀 Extract the original, non-personalized tracks</li>
+                            <li>✨ Create a new playlist in your account</li>
+                        </ul>
+                    </li>
+                </ol>
+                <p style="margin-top: 15px; font-style: italic; opacity: 0.8;">
+                    <strong>Note:</strong> Runs in the cloud with headless browser technology to automatically extract all 50 tracks from Song Radio playlists.
+                </p>
+            </div>
+
+            <div class="playlist-form">
+                <div class="input-group">
+                    <label for="playlistUrl">Spotify Playlist URL:</label>
+                    <input 
+                        type="url" 
+                        id="playlistUrl" 
+                        placeholder="https://open.spotify.com/playlist/..."
+                        required
+                    >
+                </div>
+                
+                <div class="input-group">
+                    <label for="newPlaylistName">New Playlist Name:</label>
+                    <input 
+                        type="text" 
+                        id="newPlaylistName" 
+                        placeholder="My Cleaned Playlist"
+                        required
+                    >
+                </div>
+
+                <button id="cleanBtn" class="btn">Clean Playlist</button>
+            </div>
+
+            <div id="status"></div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration - REPLACE WITH YOUR CLIENT ID AND UPDATE REDIRECT_URI
+        const CLIENT_ID = '3911e123b4674868822a12a596d9ea65';
+        
+        // Determine redirect URI and backend URL based on current host
+        const getCurrentUrls = () => {
+            const host = window.location.host;
+            const protocol = window.location.protocol;
+            const isLocalhost = host.includes('127.0.0.1') || host.includes('localhost');
+            
+            const redirectUri = `${protocol}//${host}/`;
+            const backendUrl = isLocalhost ? 
+                `${protocol}//${host}` : 
+                `${protocol}//${host}`; // Same host for deployed version
+            
+            return { redirectUri, backendUrl };
+        };
+        
+        const { redirectUri: REDIRECT_URI, backendUrl: BACKEND_URL } = getCurrentUrls();
+        const SCOPES = 'playlist-read-private playlist-modify-public playlist-modify-private';
+
+        // State management
+        let accessToken = null;
+        let userProfile = null;
+
+        // DOM elements
+        const loginSection = document.getElementById('loginSection');
+        const appSection = document.getElementById('appSection');
+        const loginBtn = document.getElementById('loginBtn');
+        const cleanBtn = document.getElementById('cleanBtn');
+        const userInfo = document.getElementById('userInfo');
+        const status = document.getElementById('status');
+        const playlistUrlInput = document.getElementById('playlistUrl');
+        const newPlaylistNameInput = document.getElementById('newPlaylistName');
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', () => {
+            checkForToken();
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            loginBtn.addEventListener('click', initiateLogin);
+            cleanBtn.addEventListener('click', cleanPlaylist);
+        }
+
+        // Check if we're returning from Spotify auth
+        function checkForToken() {
+            // Check for authorization code from PKCE flow
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const error = urlParams.get('error');
+            
+            if (error) {
+                showStatus('Authentication error: ' + error, 'error');
+                return;
+            }
+            
+            if (code) {
+                exchangeCodeForToken(code);
+                return;
+            }
+            
+            // Check if we have a stored token
+            const storedToken = sessionStorage.getItem('spotify_access_token');
+            if (storedToken) {
+                accessToken = storedToken;
+                loadUserProfile();
+            }
+        }
+
+        // PKCE helper functions
+        function generateRandomString(length) {
+            const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let text = '';
+            for (let i = 0; i < length; i++) {
+                text += possible.charAt(Math.floor(Math.random() * possible.length));
+            }
+            return text;
+        }
+
+        async function generateCodeChallenge(codeVerifier) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(codeVerifier);
+            const digest = await crypto.subtle.digest('SHA-256', data);
+            return btoa(String.fromCharCode.apply(null, new Uint8Array(digest)))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+        }
+
+        // Step 1: Redirect to Spotify for authorization (PKCE Flow)
+        async function initiateLogin() {
+            // Generate PKCE parameters
+            const codeVerifier = generateRandomString(128);
+            const codeChallenge = await generateCodeChallenge(codeVerifier);
+            
+            // Store code verifier for later use
+            sessionStorage.setItem('spotify_code_verifier', codeVerifier);
+            
+            const authUrl = `https://accounts.spotify.com/authorize?` +
+                `client_id=${CLIENT_ID}&` +
+                `response_type=code&` +
+                `redirect_uri=${encodeURIComponent(REDIRECT_URI)}&` +
+                `scope=${encodeURIComponent(SCOPES)}&` +
+                `code_challenge_method=S256&` +
+                `code_challenge=${codeChallenge}&` +
+                `show_dialog=true`;
+            
+            window.location.href = authUrl;
+        }
+
+        // Step 2: Exchange authorization code for access token
+        async function exchangeCodeForToken(code) {
+            showStatus('Connecting to Spotify...', 'loading');
+            
+            try {
+                const codeVerifier = sessionStorage.getItem('spotify_code_verifier');
+                if (!codeVerifier) {
+                    throw new Error('Code verifier not found');
+                }
+
+                const response = await fetch('https://accounts.spotify.com/api/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({
+                        grant_type: 'authorization_code',
+                        code: code,
+                        redirect_uri: REDIRECT_URI,
+                        client_id: CLIENT_ID,
+                        code_verifier: codeVerifier
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error_description || 'Failed to get access token');
+                }
+
+                const data = await response.json();
+                accessToken = data.access_token;
+                sessionStorage.setItem('spotify_access_token', accessToken);
+                
+                // Clean up
+                sessionStorage.removeItem('spotify_code_verifier');
+                
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+                
+                loadUserProfile();
+            } catch (error) {
+                showStatus('Failed to connect to Spotify: ' + error.message, 'error');
+            }
+        }
+
+        // Load user profile
+        async function loadUserProfile() {
+            try {
+                const response = await fetch('https://api.spotify.com/v1/me', {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load user profile');
+                }
+
+                userProfile = await response.json();
+                showUserInfo();
+                loginSection.classList.add('hidden');
+                appSection.classList.remove('hidden');
+            } catch (error) {
+                showStatus('Failed to load user profile: ' + error.message, 'error');
+            }
+        }
+
+        function showUserInfo() {
+            const img = userProfile.images && userProfile.images[0] ? 
+                `<img src="${userProfile.images[0].url}" alt="Profile">` : '';
+            
+            userInfo.innerHTML = `
+                ${img}
+                <div>
+                    <h3>Welcome, ${userProfile.display_name}!</h3>
+                    <p>Connected to Spotify</p>
+                </div>
+            `;
+        }
+
+        // Extract playlist ID from URL
+        function extractPlaylistId(url) {
+            console.log('Original URL:', url);
+            
+            // Remove everything after '?' first
+            const cleanUrl = url.split('?')[0];
+            console.log('Clean URL (after removing ?):', cleanUrl);
+            
+            // Extract playlist ID from various URL formats
+            const patterns = [
+                /spotify:playlist:([a-zA-Z0-9]+)/,
+                /open\.spotify\.com\/playlist\/([a-zA-Z0-9]+)/,
+                /playlist\/([a-zA-Z0-9]+)/
+            ];
+
+            for (const pattern of patterns) {
+                const match = cleanUrl.match(pattern);
+                if (match) {
+                    console.log('Extracted playlist ID:', match[1]);
+                    return match[1];
+                }
+            }
+            
+            throw new Error('Invalid Spotify playlist URL. Please use a format like: https://open.spotify.com/playlist/XXXXXX');
+        }
+
+        // Main function to clean playlist
+        async function cleanPlaylist() {
+            const playlistUrl = playlistUrlInput.value.trim();
+            const newPlaylistName = newPlaylistNameInput.value.trim();
+
+            if (!playlistUrl || !newPlaylistName) {
+                showStatus('Please fill in all fields', 'error');
+                return;
+            }
+
+            try {
+                cleanBtn.disabled = true;
+                showStatus('Processing playlist...', 'loading');
+
+                // Extract playlist ID
+                const playlistId = extractPlaylistId(playlistUrl);
+                console.log('Extracted playlist ID:', playlistId);
+
+                let tracks = [];
+
+                // First try API approach
+                try {
+                    console.log('🔄 Attempting API approach...');
+                    const playlistInfo = await getPlaylistInfo(playlistId);
+                    console.log('Playlist info:', playlistInfo);
+                    
+                    tracks = await getPlaylistTracksAPI(playlistId);
+                    console.log('✅ API approach succeeded! Found tracks:', tracks.length);
+                } catch (apiError) {
+                    console.log('❌ API approach failed:', apiError.message);
+                    console.log('🕷️ Switching to web scraping approach...');
+                    
+                    showStatus('API blocked, trying web scraping...', 'loading');
+                    
+                    // Try web scraping approach
+                    tracks = await scrapePlaylistFromWeb(playlistId);
+                }
+
+                if (tracks.length === 0) {
+                    throw new Error('No tracks found in playlist');
+                }
+
+                console.log(`📀 Found ${tracks.length} tracks total`);
+
+                // Create new playlist
+                showStatus('Creating new playlist...', 'loading');
+                const newPlaylist = await createPlaylist(newPlaylistName);
+                console.log('Created new playlist:', newPlaylist.id);
+
+                // Add tracks to new playlist
+                showStatus('Adding tracks to playlist...', 'loading');
+                await addTracksToPlaylist(newPlaylist.id, tracks);
+
+                showStatus(`🎉 Success! Created "${newPlaylistName}" with ${tracks.length} tracks.`, 'success');
+                
+                // Clear form
+                playlistUrlInput.value = '';
+                newPlaylistNameInput.value = '';
+
+            } catch (error) {
+                console.error('Error cleaning playlist:', error);
+                showStatus('Error: ' + error.message, 'error');
+            } finally {
+                cleanBtn.disabled = false;
+            }
+        }
+
+        // Rename the old function to be more specific
+        async function getPlaylistTracksAPI(playlistId) {
+            console.log('Fetching tracks via API for playlist ID:', playlistId);
+            
+            // Try different API approaches to get original content
+            const approaches = [
+                { params: '?market=US', description: 'with US market' },
+                { params: '?fields=tracks.items(track.uri,track.id,track.name)', description: 'with fields filter' },
+                { params: '', description: 'standard approach' }
+            ];
+
+            for (const approach of approaches) {
+                console.log(`Trying ${approach.description}...`);
+                
+                try {
+                    const testTracks = await fetchTracksWithApproach(playlistId, approach.params);
+                    if (testTracks.length > 0) {
+                        console.log(`✅ Success with ${approach.description}! Found ${testTracks.length} tracks`);
+                        return testTracks;
+                    }
+                } catch (error) {
+                    console.log(`❌ Failed with ${approach.description}:`, error.message);
+                    continue;
+                }
+            }
+
+            throw new Error('All API approaches failed');
+        }
+
+        async function fetchTracksWithApproach(playlistId, params) {
+            const tracks = [];
+            let offset = 0;
+            const limit = 50;
+
+            while (true) {
+                const separator = params ? '&' : '?';
+                const url = `https://api.spotify.com/v1/playlists/${playlistId}/tracks${params}${separator}offset=${offset}&limit=${limit}`;
+                console.log('API Request URL:', url);
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                console.log('API Response status:', response.status);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.log('API Error response:', errorText);
+                    throw new Error(`API request failed: ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log(`Fetched ${data.items.length} items from API`);
+                
+                // Extract track URIs
+                const trackUris = data.items
+                    .filter(item => item.track && item.track.uri)
+                    .map(item => item.track.uri);
+                
+                console.log(`Found ${trackUris.length} valid track URIs in this batch`);
+                tracks.push(...trackUris);
+
+                if (data.next) {
+                    offset += limit;
+                    console.log(`Fetching next batch, offset: ${offset}`);
+                } else {
+                    break;
+                }
+            }
+
+            console.log(`Total tracks found: ${tracks.length}`);
+            return tracks;
+        }
+
+        // Get playlist info to check if we can access it (try different approaches)
+        async function getPlaylistInfo(playlistId) {
+            console.log('Trying to get playlist info with different approaches...');
+            
+            // Try different API approaches to get original content
+            const approaches = [
+                { params: '?market=US', description: 'with US market' },
+                { params: '?fields=name,description,public,owner', description: 'with basic fields' },
+                { params: '', description: 'standard approach' }
+            ];
+
+            for (const approach of approaches) {
+                console.log(`Trying playlist info ${approach.description}...`);
+                
+                try {
+                    const url = `https://api.spotify.com/v1/playlists/${playlistId}${approach.params}`;
+                    console.log('Getting playlist info from:', url);
+                    
+                    const response = await fetch(url, {
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`
+                        }
+                    });
+
+                    console.log(`Playlist info response status (${approach.description}):`, response.status);
+
+                    if (response.ok) {
+                        console.log(`✅ Success getting playlist info with ${approach.description}!`);
+                        return response.json();
+                    } else {
+                        const errorText = await response.text();
+                        console.log(`❌ Failed with ${approach.description}:`, response.status, errorText);
+                        continue;
+                    }
+                } catch (error) {
+                    console.log(`❌ Error with ${approach.description}:`, error.message);
+                    continue;
+                }
+            }
+            
+            throw new Error(`Could not access playlist. This might be a special algorithmic playlist that's not accessible via API.`);
+        }
+
+        // Web scraping approach using Python backend
+        async function scrapePlaylistFromWeb(playlistId) {
+            console.log('🐍 Using Python backend for scraping...');
+            
+            try {
+                const originalUrl = `https://open.spotify.com/playlist/${playlistId}`;
+                
+                console.log('📡 Sending request to Python backend...');
+                console.log('📍 Backend URL: http://127.0.0.1:5000/scrape');
+                console.log('📦 Request payload:', { url: originalUrl });
+                
+                // Test backend connection first
+                try {
+                    console.log('🏥 Testing backend health check...');
+                    const healthResponse = await fetch(`${BACKEND_URL}/health`);
+                    const healthData = await healthResponse.json();
+                    console.log('✅ Backend health check:', healthData);
+                } catch (healthError) {
+                    console.log('❌ Backend health check failed:', healthError.message);
+                    throw new Error(`Backend connection failed: ${healthError.message}`);
+                }
+                
+                const response = await fetch(`${BACKEND_URL}/scrape`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        url: originalUrl
+                    })
+                });
+
+                console.log('📨 Backend response status:', response.status);
+                console.log('📨 Backend response ok:', response.ok);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.log('❌ Backend error response:', errorText);
+                    
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        throw new Error(errorData.error || `Backend request failed: ${response.status}`);
+                    } catch (parseError) {
+                        throw new Error(`Backend request failed: ${response.status} - ${errorText}`);
+                    }
+                }
+
+                const data = await response.json();
+                console.log('📦 Backend response data:', data);
+                
+                if (data.success && data.tracks && data.tracks.length > 0) {
+                    console.log(`✅ Python backend found ${data.tracks.length} tracks!`);
+                    return data.tracks;
+                } else {
+                    console.log('❌ Backend response indicates no tracks found:', data);
+                    throw new Error('No tracks found by Python backend');
+                }
+                
+            } catch (error) {
+                console.log('❌ Python backend error:', error.message);
+                
+                // Check if it's a connection error (backend not running)
+                if (error.message.includes('Failed to fetch') || error.message.includes('fetch')) {
+                    throw new Error(`🐍 Python backend not running! Please:\n\n1. Open terminal in VS Code\n2. Make sure your virtual environment is activated: spotify-env\\Scripts\\activate\n3. Run: python spotify_scraper.py\n4. Wait for "Server will be available at: http://127.0.0.1:5000"\n5. Then try again\n\nOriginal error: ${error.message}`);
+                } else {
+                    throw new Error(`Python backend error: ${error.message}`);
+                }
+            }
+        }
+
+        // Try accessing the Spotify embed version (keeping as fallback)
+        async function trySpotifyEmbed(playlistId) {
+            console.log('🎵 Trying Spotify embed approach...');
+            
+            try {
+                const embedUrl = `https://open.spotify.com/embed/playlist/${playlistId}`;
+                console.log('Fetching embed URL:', embedUrl);
+                
+                const response = await fetch(embedUrl);
+                
+                if (response.ok) {
+                    const html = await response.text();
+                    console.log('Got embed HTML, length:', html.length);
+                    
+                    const tracks = extractTracksFromHTML(html);
+                    if (tracks.length > 0) {
+                        console.log(`✅ Embed approach found ${tracks.length} tracks!`);
+                        return tracks;
+                    }
+                }
+            } catch (error) {
+                console.log('Embed approach failed:', error.message);
+            }
+            
+            return [];
+        }
+
+        // Extract track information from Spotify web player HTML
+        function extractTracksFromHTML(html) {
+            console.log('🔍 Analyzing HTML for track data...');
+            
+            const tracks = [];
+            
+            // Look for different patterns where track data might be stored
+            const patterns = [
+                // Pattern 1: Look for track URIs directly
+                /spotify:track:([a-zA-Z0-9]{22})/g,
+                // Pattern 2: Look for track IDs in data attributes
+                /data-track-id="([a-zA-Z0-9]{22})"/g,
+                // Pattern 3: Look for track URIs in JSON
+                /"uri":"spotify:track:([a-zA-Z0-9]{22})"/g
+            ];
+            
+            for (const pattern of patterns) {
+                console.log('Trying pattern:', pattern.source);
+                
+                const matches = [...html.matchAll(pattern)];
+                console.log(`Found ${matches.length} matches with this pattern`);
+                
+                if (matches.length > 0) {
+                    const trackIds = matches.map(match => match[1]);
+                    const uniqueTrackIds = [...new Set(trackIds)]; // Remove duplicates
+                    
+                    console.log(`Unique track IDs found: ${uniqueTrackIds.length}`);
+                    
+                    // Convert to Spotify URIs
+                    const trackUris = uniqueTrackIds.map(id => `spotify:track:${id}`);
+                    
+                    // Song Radio playlists should have exactly 50 songs
+                    if (trackUris.length >= 45 && trackUris.length <= 55) {
+                        console.log(`✅ Found ${trackUris.length} tracks - this looks like a Song Radio playlist!`);
+                        return trackUris.slice(0, 50); // Take first 50 if we have more
+                    } else if (trackUris.length > 0) {
+                        console.log(`Found ${trackUris.length} tracks - not typical Song Radio count, but proceeding...`);
+                        return trackUris;
+                    }
+                }
+            }
+            
+            // If no track URIs found, look for a JSON blob with track data
+            console.log('Looking for JSON data in page...');
+            const jsonMatches = html.match(/<script[^>]*>.*?window\.__data\s*=\s*({.*?});.*?<\/script>/s);
+            if (jsonMatches) {
+                try {
+                    console.log('Found window.__data, parsing...');
+                    const jsonData = JSON.parse(jsonMatches[1]);
+                    console.log('Parsed JSON data');
+                    
+                    // Look for tracks in the JSON structure
+                    const tracksFromJson = extractTracksFromJSON(jsonData);
+                    if (tracksFromJson.length > 0) {
+                        return tracksFromJson;
+                    }
+                } catch (error) {
+                    console.log('Failed to parse JSON data:', error.message);
+                }
+            }
+            
+            console.log('❌ No tracks found in HTML');
+            return [];
+        }
+
+        // Extract tracks from JSON data structure
+        function extractTracksFromJSON(data) {
+            const tracks = [];
+            
+            function searchForTracks(obj, path = '') {
+                if (typeof obj !== 'object' || obj === null) return;
+                
+                // Look for track objects
+                if (obj.uri && typeof obj.uri === 'string' && obj.uri.startsWith('spotify:track:')) {
+                    tracks.push(obj.uri);
+                }
+                
+                // Recursively search through the object
+                for (const [key, value] of Object.entries(obj)) {
+                    if (Array.isArray(value)) {
+                        value.forEach((item, index) => {
+                            searchForTracks(item, `${path}.${key}[${index}]`);
+                        });
+                    } else if (typeof value === 'object') {
+                        searchForTracks(value, `${path}.${key}`);
+                    }
+                }
+            }
+            
+            searchForTracks(data);
+            
+            // Remove duplicates
+            const uniqueTracks = [...new Set(tracks)];
+            console.log(`Found ${uniqueTracks.length} unique tracks in JSON`);
+            
+            return uniqueTracks;
+        }
+
+        // Create a new playlist
+        async function createPlaylist(name) {
+            const response = await fetch(
+                `https://api.spotify.com/v1/users/${userProfile.id}/playlists`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        description: 'Cleaned playlist created by Playlist Cleaner',
+                        public: false
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(`Failed to create playlist: ${response.status}`);
+            }
+
+            return response.json();
+        }
+
+        // Add tracks to playlist
+        async function addTracksToPlaylist(playlistId, trackUris) {
+            // Spotify allows max 100 tracks per request
+            const batchSize = 100;
+            
+            for (let i = 0; i < trackUris.length; i += batchSize) {
+                const batch = trackUris.slice(i, i + batchSize);
+                
+                const response = await fetch(
+                    `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            uris: batch
+                        })
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(`Failed to add tracks to playlist: ${response.status}`);
+                }
+            }
+        }
+
+        function showStatus(message, type) {
+            status.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        // Handle authentication with implicit grant
+        function handleImplicitGrant() {
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            const token = params.get('access_token');
+            
+            if (token) {
+                accessToken = token;
+                sessionStorage.setItem('spotify_access_token', token);
+                loadUserProfile();
+                // Clean up URL
+                window.location.hash = '';
+            }
+        }
+    </script>
+</body>
+</html>
