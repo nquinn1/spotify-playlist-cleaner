@@ -47,8 +47,8 @@ def setup_chrome_driver():
         from selenium.webdriver.chrome.options import Options
         
         options = Options()
-        # Cloud-specific Chrome options
-        options.add_argument('--headless')
+        # Essential cloud Chrome options
+        options.add_argument('--headless=new')  # Use new headless mode
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-gpu')
@@ -57,23 +57,31 @@ def setup_chrome_driver():
         options.add_argument('--remote-debugging-port=9222')
         options.add_argument('--disable-extensions')
         options.add_argument('--disable-plugins')
-        options.add_argument('--disable-images')
-        options.add_argument('--disable-javascript')
-        options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+        options.add_argument('--disable-images')  # Faster loading
+        options.add_argument('--disable-background-timer-throttling')
+        options.add_argument('--disable-backgrounding-occluded-windows')
+        options.add_argument('--disable-renderer-backgrounding')
+        options.add_argument('--disable-features=TranslateUI')
+        options.add_argument('--disable-ipc-flooding-protection')
+        options.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
         
-        # Try webdriver-manager first
+        # Try different driver setup approaches
         try:
             from webdriver_manager.chrome import ChromeDriverManager
             log_message("🔧 Using webdriver-manager for Chrome (cloud)")
             service = Service(ChromeDriverManager().install())
-            return webdriver.Chrome(service=service, options=options)
+            driver = webdriver.Chrome(service=service, options=options)
+            log_message("✅ Chrome driver created successfully")
+            return driver
         except Exception as e:
             log_message(f"❌ webdriver-manager failed: {e}")
             log_message("🔧 Trying system ChromeDriver")
-            return webdriver.Chrome(options=options)
+            driver = webdriver.Chrome(options=options)
+            log_message("✅ System Chrome driver created successfully")
+            return driver
             
     except Exception as e:
-        log_message(f"❌ Chrome setup failed: {e}")
+        log_message(f"❌ Chrome setup failed completely: {e}")
         raise
 
 def setup_firefox_driver():
