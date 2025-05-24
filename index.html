@@ -268,25 +268,27 @@
         // Configuration - REPLACE WITH YOUR CLIENT ID
         const CLIENT_ID = '3911e123b4674868822a12a596d9ea65';
         
-        // Determine redirect URI and backend URL based on current host
-        const getCurrentUrls = () => {
-            const host = window.location.host;
-            const protocol = window.location.protocol;
+        // Get current page info to build all URLs dynamically
+        function buildDynamicUrls() {
+            const currentLocation = window.location;
+            const protocol = currentLocation.protocol;
+            const host = currentLocation.host;
             
-            console.log('🔍 URL Detection Debug:');
-            console.log('  Current host:', host);
+            console.log('🔧 Building URLs dynamically:');
             console.log('  Protocol:', protocol);
+            console.log('  Host:', host);
+            console.log('  Full URL:', currentLocation.href);
             
-            const redirectUri = `${protocol}//${host}/`;
-            const backendUrl = `${protocol}//${host}`; // ALWAYS use same host as frontend
+            const redirectUri = protocol + '//' + host + '/';
+            const backendBaseUrl = protocol + '//' + host;
             
             console.log('  Redirect URI:', redirectUri);
-            console.log('  Backend URL:', backendUrl);
+            console.log('  Backend Base URL:', backendBaseUrl);
             
-            return { redirectUri, backendUrl };
-        };
+            return { redirectUri, backendBaseUrl };
+        }
         
-        const { redirectUri: REDIRECT_URI, backendUrl: BACKEND_URL } = getCurrentUrls();
+        const { redirectUri: REDIRECT_URI, backendBaseUrl: BACKEND_BASE_URL } = buildDynamicUrls();
         const SCOPES = 'playlist-read-private playlist-modify-public playlist-modify-private';
 
         // State management
@@ -316,18 +318,9 @@
 
         // Check if we're returning from Spotify auth
         function checkForToken() {
-            // Check for authorization code from PKCE flow
-            const urlParams = new URLSearchParams(window.location.search);
-            const code = urlParams.get('code');
-            const error = urlParams.get('error');
-            
-            if (error) {
-                showStatus('Authentication error: ' + error, 'error');
-                return;
-            }
-            
-            if (code) {
-                exchangeCodeForToken(code);
+            // Check for implicit grant token first
+            if (window.location.hash.includes('access_token')) {
+                handleImplicitGrant();
                 return;
             }
             
@@ -380,48 +373,18 @@
             window.location.href = authUrl;
         }
 
-        // Step 2: Exchange authorization code for access token
-        async function exchangeCodeForToken(code) {
-            showStatus('Connecting to Spotify...', 'loading');
+        // Handle authentication with implicit grant
+        function handleImplicitGrant() {
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            const token = params.get('access_token');
             
-            try {
-                const codeVerifier = sessionStorage.getItem('spotify_code_verifier');
-                if (!codeVerifier) {
-                    throw new Error('Code verifier not found');
-                }
-
-                const response = await fetch('https://accounts.spotify.com/api/token', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: new URLSearchParams({
-                        grant_type: 'authorization_code',
-                        code: code,
-                        redirect_uri: REDIRECT_URI,
-                        client_id: CLIENT_ID,
-                        code_verifier: codeVerifier
-                    })
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error_description || 'Failed to get access token');
-                }
-
-                const data = await response.json();
-                accessToken = data.access_token;
-                sessionStorage.setItem('spotify_access_token', accessToken);
-                
-                // Clean up
-                sessionStorage.removeItem('spotify_code_verifier');
-                
-                // Clean URL
-                window.history.replaceState({}, document.title, window.location.pathname);
-                
+            if (token) {
+                accessToken = token;
+                sessionStorage.setItem('spotify_access_token', token);
                 loadUserProfile();
-            } catch (error) {
-                showStatus('Failed to connect to Spotify: ' + error.message, 'error');
+                // Clean up URL
+                window.location.hash = '';
             }
         }
 
@@ -521,7 +484,7 @@
                     showStatus('API blocked, trying web scraping...', 'loading');
                     
                     // Try web scraping approach
-                    tracks = await scrapePlaylistFromWeb(playlistId);
+                    tracks = await scrapePlaylistFromBackend(playlistId);
                 }
 
                 if (tracks.length === 0) {
@@ -551,6 +514,49 @@
             } finally {
                 cleanBtn.disabled = false;
             }
+        }
+
+        // Get playlist info to check if we can access it (try different approaches)
+        async function getPlaylistInfo(playlistId) {
+            console.log('Trying to get playlist info with different approaches...');
+            
+            // Try different API approaches to get original content
+            const approaches = [
+                { params: '?market=US', description: 'with US market' },
+                { params: '?fields=name,description,public,owner', description: 'with basic fields' },
+                { params: '', description: 'standard approach' }
+            ];
+
+            for (const approach of approaches) {
+                console.log(`Trying playlist info ${approach.description}...`);
+                
+                try {
+                    const url = `https://api.spotify.com/v1/playlists/${playlistId}${approach.params}`;
+                    console.log('Getting playlist info from:', url);
+                    
+                    const response = await fetch(url, {
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`
+                        }
+                    });
+
+                    console.log(`Playlist info response status (${approach.description}):`, response.status);
+
+                    if (response.ok) {
+                        console.log(`✅ Success getting playlist info with ${approach.description}!`);
+                        return response.json();
+                    } else {
+                        const errorText = await response.text();
+                        console.log(`❌ Failed with ${approach.description}:`, response.status, errorText);
+                        continue;
+                    }
+                } catch (error) {
+                    console.log(`❌ Error with ${approach.description}:`, error.message);
+                    continue;
+                }
+            }
+            
+            throw new Error(`Could not access playlist. This might be a special algorithmic playlist that's not accessible via API.`);
         }
 
         // Rename the old function to be more specific
@@ -629,72 +635,35 @@
             return tracks;
         }
 
-        // Get playlist info to check if we can access it (try different approaches)
-        async function getPlaylistInfo(playlistId) {
-            console.log('Trying to get playlist info with different approaches...');
-            
-            // Try different API approaches to get original content
-            const approaches = [
-                { params: '?market=US', description: 'with US market' },
-                { params: '?fields=name,description,public,owner', description: 'with basic fields' },
-                { params: '', description: 'standard approach' }
-            ];
-
-            for (const approach of approaches) {
-                console.log(`Trying playlist info ${approach.description}...`);
-                
-                try {
-                    const url = `https://api.spotify.com/v1/playlists/${playlistId}${approach.params}`;
-                    console.log('Getting playlist info from:', url);
-                    
-                    const response = await fetch(url, {
-                        headers: {
-                            'Authorization': `Bearer ${accessToken}`
-                        }
-                    });
-
-                    console.log(`Playlist info response status (${approach.description}):`, response.status);
-
-                    if (response.ok) {
-                        console.log(`✅ Success getting playlist info with ${approach.description}!`);
-                        return response.json();
-                    } else {
-                        const errorText = await response.text();
-                        console.log(`❌ Failed with ${approach.description}:`, response.status, errorText);
-                        continue;
-                    }
-                } catch (error) {
-                    console.log(`❌ Error with ${approach.description}:`, error.message);
-                    continue;
-                }
-            }
-            
-            throw new Error(`Could not access playlist. This might be a special algorithmic playlist that's not accessible via API.`);
-        }
-
-        // Web scraping approach using Python backend
-        async function scrapePlaylistFromWeb(playlistId) {
+        // Web scraping using backend - COMPLETELY REWRITTEN
+        async function scrapePlaylistFromBackend(playlistId) {
             console.log('🐍 Using Python backend for scraping...');
             
+            // Build URLs from current page location
+            const currentLocation = window.location;
+            const healthEndpoint = currentLocation.protocol + '//' + currentLocation.host + '/health';
+            const scrapeEndpoint = currentLocation.protocol + '//' + currentLocation.host + '/scrape';
+            
+            console.log('🔧 Backend endpoints:');
+            console.log('  Health endpoint:', healthEndpoint);
+            console.log('  Scrape endpoint:', scrapeEndpoint);
+            
+            const originalUrl = `https://open.spotify.com/playlist/${playlistId}`;
+            console.log('📦 Request payload:', { url: originalUrl });
+            
             try {
-                const originalUrl = `https://open.spotify.com/playlist/${playlistId}`;
-                
-                console.log('📡 Sending request to Python backend...');
-                console.log('📍 Backend URL: http://127.0.0.1:5000/scrape');
-                console.log('📦 Request payload:', { url: originalUrl });
-                
                 // Test backend connection first
-                try {
-                    console.log('🏥 Testing backend health check...');
-                    const healthResponse = await fetch(`${BACKEND_URL}/health`);
-                    const healthData = await healthResponse.json();
-                    console.log('✅ Backend health check:', healthData);
-                } catch (healthError) {
-                    console.log('❌ Backend health check failed:', healthError.message);
-                    throw new Error(`Backend connection failed: ${healthError.message}`);
+                console.log('🏥 Testing backend health check...');
+                const healthResponse = await fetch(healthEndpoint);
+                if (!healthResponse.ok) {
+                    throw new Error(`Health check failed: ${healthResponse.status}`);
                 }
+                const healthData = await healthResponse.json();
+                console.log('✅ Backend health check:', healthData);
                 
-                const response = await fetch(`${BACKEND_URL}/scrape`, {
+                // Make scrape request
+                console.log('🚀 Making scrape request...');
+                const response = await fetch(scrapeEndpoint, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -732,139 +701,8 @@
                 
             } catch (error) {
                 console.log('❌ Python backend error:', error.message);
-                
-                // Check if it's a connection error (backend not running)
-                if (error.message.includes('Failed to fetch') || error.message.includes('fetch')) {
-                    throw new Error(`🐍 Python backend not running! Please:\n\n1. Open terminal in VS Code\n2. Make sure your virtual environment is activated: spotify-env\\Scripts\\activate\n3. Run: python spotify_scraper.py\n4. Wait for "Server will be available at: http://127.0.0.1:5000"\n5. Then try again\n\nOriginal error: ${error.message}`);
-                } else {
-                    throw new Error(`Python backend error: ${error.message}`);
-                }
+                throw new Error(`Python backend error: ${error.message}`);
             }
-        }
-
-        // Try accessing the Spotify embed version (keeping as fallback)
-        async function trySpotifyEmbed(playlistId) {
-            console.log('🎵 Trying Spotify embed approach...');
-            
-            try {
-                const embedUrl = `https://open.spotify.com/embed/playlist/${playlistId}`;
-                console.log('Fetching embed URL:', embedUrl);
-                
-                const response = await fetch(embedUrl);
-                
-                if (response.ok) {
-                    const html = await response.text();
-                    console.log('Got embed HTML, length:', html.length);
-                    
-                    const tracks = extractTracksFromHTML(html);
-                    if (tracks.length > 0) {
-                        console.log(`✅ Embed approach found ${tracks.length} tracks!`);
-                        return tracks;
-                    }
-                }
-            } catch (error) {
-                console.log('Embed approach failed:', error.message);
-            }
-            
-            return [];
-        }
-
-        // Extract track information from Spotify web player HTML
-        function extractTracksFromHTML(html) {
-            console.log('🔍 Analyzing HTML for track data...');
-            
-            const tracks = [];
-            
-            // Look for different patterns where track data might be stored
-            const patterns = [
-                // Pattern 1: Look for track URIs directly
-                /spotify:track:([a-zA-Z0-9]{22})/g,
-                // Pattern 2: Look for track IDs in data attributes
-                /data-track-id="([a-zA-Z0-9]{22})"/g,
-                // Pattern 3: Look for track URIs in JSON
-                /"uri":"spotify:track:([a-zA-Z0-9]{22})"/g
-            ];
-            
-            for (const pattern of patterns) {
-                console.log('Trying pattern:', pattern.source);
-                
-                const matches = [...html.matchAll(pattern)];
-                console.log(`Found ${matches.length} matches with this pattern`);
-                
-                if (matches.length > 0) {
-                    const trackIds = matches.map(match => match[1]);
-                    const uniqueTrackIds = [...new Set(trackIds)]; // Remove duplicates
-                    
-                    console.log(`Unique track IDs found: ${uniqueTrackIds.length}`);
-                    
-                    // Convert to Spotify URIs
-                    const trackUris = uniqueTrackIds.map(id => `spotify:track:${id}`);
-                    
-                    // Song Radio playlists should have exactly 50 songs
-                    if (trackUris.length >= 45 && trackUris.length <= 55) {
-                        console.log(`✅ Found ${trackUris.length} tracks - this looks like a Song Radio playlist!`);
-                        return trackUris.slice(0, 50); // Take first 50 if we have more
-                    } else if (trackUris.length > 0) {
-                        console.log(`Found ${trackUris.length} tracks - not typical Song Radio count, but proceeding...`);
-                        return trackUris;
-                    }
-                }
-            }
-            
-            // If no track URIs found, look for a JSON blob with track data
-            console.log('Looking for JSON data in page...');
-            const jsonMatches = html.match(/<script[^>]*>.*?window\.__data\s*=\s*({.*?});.*?<\/script>/s);
-            if (jsonMatches) {
-                try {
-                    console.log('Found window.__data, parsing...');
-                    const jsonData = JSON.parse(jsonMatches[1]);
-                    console.log('Parsed JSON data');
-                    
-                    // Look for tracks in the JSON structure
-                    const tracksFromJson = extractTracksFromJSON(jsonData);
-                    if (tracksFromJson.length > 0) {
-                        return tracksFromJson;
-                    }
-                } catch (error) {
-                    console.log('Failed to parse JSON data:', error.message);
-                }
-            }
-            
-            console.log('❌ No tracks found in HTML');
-            return [];
-        }
-
-        // Extract tracks from JSON data structure
-        function extractTracksFromJSON(data) {
-            const tracks = [];
-            
-            function searchForTracks(obj, path = '') {
-                if (typeof obj !== 'object' || obj === null) return;
-                
-                // Look for track objects
-                if (obj.uri && typeof obj.uri === 'string' && obj.uri.startsWith('spotify:track:')) {
-                    tracks.push(obj.uri);
-                }
-                
-                // Recursively search through the object
-                for (const [key, value] of Object.entries(obj)) {
-                    if (Array.isArray(value)) {
-                        value.forEach((item, index) => {
-                            searchForTracks(item, `${path}.${key}[${index}]`);
-                        });
-                    } else if (typeof value === 'object') {
-                        searchForTracks(value, `${path}.${key}`);
-                    }
-                }
-            }
-            
-            searchForTracks(data);
-            
-            // Remove duplicates
-            const uniqueTracks = [...new Set(tracks)];
-            console.log(`Found ${uniqueTracks.length} unique tracks in JSON`);
-            
-            return uniqueTracks;
         }
 
         // Create a new playlist
@@ -922,21 +760,6 @@
 
         function showStatus(message, type) {
             status.innerHTML = `<div class="status ${type}">${message}</div>`;
-        }
-
-        // Handle authentication with implicit grant
-        function handleImplicitGrant() {
-            const hash = window.location.hash.substring(1);
-            const params = new URLSearchParams(hash);
-            const token = params.get('access_token');
-            
-            if (token) {
-                accessToken = token;
-                sessionStorage.setItem('spotify_access_token', token);
-                loadUserProfile();
-                // Clean up URL
-                window.location.hash = '';
-            }
         }
     </script>
 </body>
