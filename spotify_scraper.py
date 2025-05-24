@@ -96,99 +96,82 @@ def check_browser_availability():
         availability['drivers'][name] = os.path.exists(path)
     
     return availability
+# Replace your browser setup functions with these webdriver-manager only versions
 
 def setup_chrome_driver():
-    """Set up Chrome/Chromium headless driver with robust fallback"""
+    """Set up Chrome driver using webdriver-manager only"""
     try:
         from selenium import webdriver
         from selenium.webdriver.chrome.service import Service
         from selenium.webdriver.chrome.options import Options
+        from webdriver_manager.chrome import ChromeDriverManager
         
-        log_message("🔧 Setting up Chrome/Chromium driver...")
+        log_message("🔧 Setting up Chrome with webdriver-manager...")
         
         options = Options()
         
-        # Essential headless options for cloud deployment
+        # Essential headless options
         chrome_options = [
             '--headless=new',
             '--no-sandbox',
             '--disable-dev-shm-usage',
             '--disable-gpu',
-            '--disable-features=VizDisplayCompositor',
             '--window-size=1920,1080',
-            '--remote-debugging-port=9222',
             '--disable-extensions',
             '--disable-plugins',
             '--disable-images',
-            '--disable-background-timer-throttling',
-            '--disable-backgrounding-occluded-windows',
-            '--disable-renderer-backgrounding',
-            '--disable-features=TranslateUI',
-            '--disable-ipc-flooding-protection',
             '--single-process',
             '--memory-pressure-off',
             '--disable-web-security',
-            '--disable-logging',
-            '--disable-gpu-logging',
-            '--silent',
-            '--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            '--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'
         ]
         
         for option in chrome_options:
             options.add_argument(option)
         
-        # Try to find browser binary (in order of preference)
-        browser_paths = [
-            '/usr/bin/google-chrome',           # Direct download
-            '/usr/bin/google-chrome-stable',    # Package install  
-            '/usr/bin/chromium-browser',        # Ubuntu chromium
-            '/usr/bin/chromium',               # Generic chromium
-            os.environ.get('CHROME_BIN')       # Environment variable
-        ]
+        # Let webdriver-manager handle everything
+        log_message("📥 Downloading Chrome and ChromeDriver via webdriver-manager...")
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=options)
         
-        found_browser = None
-        for path in browser_paths:
-            if path and os.path.exists(path):
-                found_browser = path
-                log_message(f"📍 Found Chrome/Chromium at: {found_browser}")
-                break
-        
-        if not found_browser:
-            raise Exception("No Chrome or Chromium browser found")
-        
-        options.binary_location = found_browser
-        
-        # Try different driver approaches
-        driver_attempts = [
-            # Method 1: Use environment variable path
-            lambda: _try_chrome_with_driver(options, os.environ.get('CHROMEDRIVER_PATH')),
-            # Method 2: Use local bin
-            lambda: _try_chrome_with_driver(options, '/usr/local/bin/chromedriver'),
-            # Method 3: Use system bin
-            lambda: _try_chrome_with_driver(options, '/usr/bin/chromedriver'),
-            # Method 4: Use chromium driver
-            lambda: _try_chrome_with_driver(options, '/usr/bin/chromium-chromedriver'),
-            # Method 5: Let selenium find driver
-            lambda: webdriver.Chrome(options=options),
-            # Method 6: Try webdriver-manager
-            lambda: _try_chrome_with_webdriver_manager(options)
-        ]
-        
-        for i, attempt in enumerate(driver_attempts, 1):
-            try:
-                log_message(f"🔧 Chrome driver attempt {i}...")
-                driver = attempt()
-                if driver:
-                    log_message(f"✅ Chrome driver created successfully on attempt {i}!")
-                    return driver
-            except Exception as e:
-                log_message(f"❌ Chrome attempt {i} failed: {str(e)[:100]}")
-                continue
-        
-        raise Exception("All Chrome driver attempts failed")
+        log_message("✅ Chrome driver created successfully with webdriver-manager!")
+        return driver
         
     except Exception as e:
-        log_message(f"❌ Chrome setup failed completely: {e}")
+        log_message(f"❌ Chrome webdriver-manager setup failed: {e}")
+        raise
+
+def setup_firefox_driver():
+    """Set up Firefox driver using webdriver-manager only"""
+    try:
+        from selenium import webdriver
+        from selenium.webdriver.firefox.service import Service
+        from selenium.webdriver.firefox.options import Options
+        from webdriver_manager.firefox import GeckoDriverManager
+        
+        log_message("🦊 Setting up Firefox with webdriver-manager...")
+        
+        options = Options()
+        firefox_options = [
+            '--headless',
+            '--width=1920',
+            '--height=1080',
+            '--disable-gpu'
+        ]
+        
+        for option in firefox_options:
+            options.add_argument(option)
+        
+        # Let webdriver-manager handle everything
+        log_message("📥 Downloading Firefox and GeckoDriver via webdriver-manager...")
+        service = Service(GeckoDriverManager().install())
+        driver = webdriver.Firefox(service=service, options=options)
+        
+        log_message("✅ Firefox driver created successfully with webdriver-manager!")
+        return driver
+        
+    except Exception as e:
+        log_message(f"❌ Firefox webdriver-manager setup failed: {e}")
         raise
 
 def _try_chrome_with_driver(options, driver_path):

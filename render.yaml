@@ -8,46 +8,21 @@ services:
       echo "🔧 Installing Python dependencies..."
       pip install -r requirements.txt
       
-      echo "🔄 Updating package lists..."
+      echo "📦 Installing system dependencies for webdriver-manager..."
       apt-get update
+      apt-get install -y wget curl unzip
       
-      echo "📦 Installing essential dependencies..."
-      apt-get install -y wget curl gnupg lsb-release ca-certificates
+      echo "✅ Build complete - webdriver-manager will handle browsers!"
       
-      echo "🌐 Installing Chromium (primary option)..."
-      apt-get install -y chromium-browser
-      
-      echo "🔧 Creating Chrome symlinks for compatibility..."
-      ln -sf /usr/bin/chromium-browser /usr/bin/google-chrome || true
-      ln -sf /usr/bin/chromium-browser /usr/bin/chrome || true
-      
-      echo "📍 Checking installed browsers..."
-      which chromium-browser || echo "Chromium not found"
-      which google-chrome || echo "Chrome not found"
-      ls -la /usr/bin/chrom* || echo "No chrome binaries found"
-      
-      echo "🚗 Installing ChromeDriver..."
-      apt-get install -y chromium-chromedriver || true
-      
-      echo "📍 Checking ChromeDriver..."
-      which chromedriver || echo "ChromeDriver not found"
-      ls -la /usr/bin/chromedriver* || echo "No chromedriver found"
-      
-      echo "✅ Build complete!"
-      
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 300 --preload spotify_scraper:app
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 300 spotify_scraper:app
     
     envVars:
-      - key: CHROME_BIN
-        value: /usr/bin/chromium-browser
-      - key: CHROMEDRIVER_PATH
-        value: /usr/bin/chromedriver
       - key: DISPLAY
         value: ":99"
       - key: PYTHONUNBUFFERED
         value: "1"
-      - key: SELENIUM_BROWSER
-        value: chromium
+      - key: WDM_LOG_LEVEL
+        value: "0"
         
     autoDeploy: true
     healthCheckPath: /health
