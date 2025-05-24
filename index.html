@@ -265,22 +265,20 @@
     </div>
 
     <script>
-        // Configuration - REPLACE WITH YOUR CLIENT ID AND UPDATE REDIRECT_URI
-        const CLIENT_ID = '3911e123b4674868822a12a596d9ea65';
+        // Configuration - REPLACE WITH YOUR CLIENT ID
+        const CLIENT_ID = 'YOUR_SPOTIFY_CLIENT_ID_HERE';
         
         // Determine redirect URI and backend URL based on current host
         const getCurrentUrls = () => {
             const host = window.location.host;
             const protocol = window.location.protocol;
-            const isLocalhost = host.includes('127.0.0.1') || host.includes('localhost');
             
             console.log('🔍 URL Detection Debug:');
             console.log('  Current host:', host);
             console.log('  Protocol:', protocol);
-            console.log('  Is localhost?', isLocalhost);
             
             const redirectUri = `${protocol}//${host}/`;
-            const backendUrl = `${protocol}//${host}`; // Always use same host
+            const backendUrl = `${protocol}//${host}`; // ALWAYS use same host as frontend
             
             console.log('  Redirect URI:', redirectUri);
             console.log('  Backend URL:', backendUrl);
