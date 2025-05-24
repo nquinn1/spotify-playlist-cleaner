@@ -39,7 +39,6 @@ def extract_playlist_id(url):
             return match.group(1)
     
     raise ValueError('Invalid Spotify playlist URL')
-
 def setup_chrome_driver():
     """Set up Chrome/Chromium headless driver for cloud deployment"""
     try:
@@ -47,34 +46,11 @@ def setup_chrome_driver():
         from selenium.webdriver.chrome.service import Service
         from selenium.webdriver.chrome.options import Options
         import os
+        import glob
         
         options = Options()
         
-        # Check if we're on Railway (Chromium) or local (Chrome)
-        chrome_bin = os.environ.get('CHROME_BIN')
-        chromedriver_path = os.environ.get('CHROMEDRIVER_PATH')
-        
-        if chrome_bin or os.path.exists('/nix'):
-            log_message("🔧 Detected Railway/Nix environment, using Chromium")
-            
-            # Try to find Chromium binary
-            chromium_paths = [
-                chrome_bin,
-                '/nix/store/*/bin/chromium',
-                '/usr/bin/chromium',
-                '/usr/bin/chromium-browser'
-            ]
-            
-            import glob
-            for path_pattern in chromium_paths:
-                if path_pattern:
-                    found_paths = glob.glob(path_pattern)
-                    if found_paths:
-                        options.binary_location = found_paths[0]
-                        log_message(f"📍 Using Chromium at: {found_paths[0]}")
-                        break
-        
-        # Essential cloud Chrome/Chromium options
+        # Essential headless options
         options.add_argument('--headless=new')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
@@ -90,42 +66,153 @@ def setup_chrome_driver():
         options.add_argument('--disable-renderer-backgrounding')
         options.add_argument('--disable-features=TranslateUI')
         options.add_argument('--disable-ipc-flooding-protection')
-        options.add_argument('--single-process')  # Use less memory
+        options.add_argument('--single-process')
         options.add_argument('--memory-pressure-off')
         options.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
         
-        # Try to use Nix-provided chromedriver first
-        if chromedriver_path:
-            try:
-                import glob
-                driver_paths = glob.glob(chromedriver_path)
-                if driver_paths:
-                    log_message(f"🔧 Using Nix chromedriver at: {driver_paths[0]}")
-                    service = Service(driver_paths[0])
-                    driver = webdriver.Chrome(service=service, options=options)
-                    log_message("✅ Nix chromedriver created successfully")
-                    return driver
-            except Exception as e:
-                log_message(f"❌ Nix chromedriver failed: {e}")
+        # Try to find browser binary
+        browser_paths = [
+            os.environ.get('CHROME_BIN'),
+            '/usr/bin/chromium-browser',
+            '/usr/bin/google-chrome',
+            '/usr/bin/chromium',
+            '/usr/bin/chrome'
+        ]
         
-        # Fallback to webdriver-manager
+        found_browser = None
+        for path in browser_paths:
+            if path and os.path.exists(path):
+                found_browser = path
+                log_message(f"📍 Found browser at: {found_browser}")
+                break
+        
+        if found_browser:
+            options.binary_location = found_browser
+        else:
+            log_message("⚠️ No browser binary found, letting Selenium try default")
+        
+        # Try to find ChromeDriver
+        driver_paths = [
+            os.environ.get('CHROMEDRIVER_PATH'),
+            '/usr/bin/chromedriver',
+            '/usr/bin/chromium-chromedriver'
+        ]
+        
+        found_driver = None
+        for path in driver_paths:
+            if path and os.path.exists(path):
+                found_driver = path
+                log_message(f"📍 Found ChromeDriver at: {found_driver}")
+                break
+        
+        # Method 1: Try with found driver
+        if found_driver:
+            try:
+                log_message(f"🔧 Trying ChromeDriver at: {found_driver}")
+                service = Service(found_driver)
+                driver = webdriver.Chrome(service=service, options=options)
+                log_message("✅ ChromeDriver created successfully!")
+                return driver
+            except Exception as e:
+                log_message(f"❌ Found ChromeDriver failed: {e}")
+        
+        # Method 2: Try system ChromeDriver (no service)
         try:
-            from webdriver_manager.chrome import ChromeDriverManager
-            log_message("🔧 Using webdriver-manager for Chrome/Chromium")
-            service = Service(ChromeDriverManager().install())
-            driver = webdriver.Chrome(service=service, options=options)
-            log_message("✅ Chrome/Chromium driver created successfully with webdriver-manager")
+            log_message("🔧 Trying system ChromeDriver (no service path)")
+            driver = webdriver.Chrome(options=options)
+            log_message("✅ System ChromeDriver created successfully!")
             return driver
         except Exception as e:
-            log_message(f"❌ webdriver-manager failed: {e}")
-            log_message("🔧 Trying system ChromeDriver")
-            driver = webdriver.Chrome(options=options)
-            log_message("✅ System Chrome/Chromium driver created successfully")
-            return driver
+            log_message(f"❌ System ChromeDriver failed: {e}")
+        
+        # Method 3: Try webdriver-manager only if we have a browser
+        if found_browser:
+            try:
+                from webdriver_manager.chrome import ChromeDriverManager
+                log_message("🔧 Trying webdriver-manager with found browser")
+                service = Service(ChromeDriverManager().install())
+                driver = webdriver.Chrome(service=service, options=options)
+                log_message("✅ webdriver-manager created successfully!")
+                return driver
+            except Exception as e:
+                log_message(f"❌ webdriver-manager failed: {e}")
+        
+        raise Exception("All ChromeDriver methods failed - no browser found")
             
     except Exception as e:
-        log_message(f"❌ Chrome/Chromium setup failed completely: {e}")
+        log_message(f"❌ Chrome setup failed completely: {e}")
         raise
+
+@app.route('/debug-selenium')
+def debug_selenium():
+    """Debug Selenium setup"""
+    log_message("🧪 Testing Selenium setup...")
+    
+    try:
+        import os
+        import glob
+        
+        debug_info = {
+            'chrome_bin_env': os.environ.get('CHROME_BIN', 'Not set'),
+            'chromedriver_path_env': os.environ.get('CHROMEDRIVER_PATH', 'Not set'),
+        }
+        
+        # Check for Chrome/Chromium binaries
+        chrome_paths = [
+            '/usr/bin/google-chrome',
+            '/usr/bin/chromium-browser',
+            '/usr/bin/chromium',
+            '/usr/bin/chrome'
+        ]
+        
+        found_browsers = []
+        for path in chrome_paths:
+            if os.path.exists(path):
+                found_browsers.append(path)
+        
+        debug_info['available_browsers'] = found_browsers
+        
+        # Check for ChromeDriver
+        driver_paths = [
+            '/usr/bin/chromedriver',
+            '/usr/bin/chromium-chromedriver'
+        ]
+        
+        found_drivers = []
+        for path in driver_paths:
+            if os.path.exists(path):
+                found_drivers.append(path)
+        
+        debug_info['available_drivers'] = found_drivers
+        
+        # Try to import Selenium
+        try:
+            from selenium import webdriver
+            debug_info['selenium_import'] = 'Success'
+            
+            # Try to create a driver (don't actually use it)
+            try:
+                driver = setup_chrome_driver()
+                debug_info['driver_creation'] = 'Success'
+                driver.quit()
+            except Exception as e:
+                debug_info['driver_creation'] = f'Failed: {str(e)[:200]}'
+                
+        except ImportError as e:
+            debug_info['selenium_import'] = f'Failed: {str(e)}'
+        
+        log_message(f"🔍 Debug info: {debug_info}")
+        return jsonify({
+            'status': 'debug_complete',
+            'debug_info': debug_info
+        })
+        
+    except Exception as e:
+        log_message(f"❌ Debug failed: {e}")
+        return jsonify({
+            'status': 'debug_failed',
+            'error': str(e)
+        }), 500
 
 def setup_firefox_driver():
     """Set up Firefox headless driver"""
