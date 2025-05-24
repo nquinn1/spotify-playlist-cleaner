@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: spotify-playlist-cleaner
+    env: python
+    region: oregon
+    plan: starter
+    buildCommand: |
+      pip install -r requirements.txt
+      # Install Chrome/Chromium for headless browsing
+      apt-get update
+      apt-get install -y wget gnupg
+      wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -
+      echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list
+      apt-get update
+      apt-get install -y google-chrome-stable
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 spotify_scraper:app
+    envVars:
+      - key: CHROME_BIN
+        value: /usr/bin/google-chrome
+      - key: CHROMEDRIVER_PATH
+        value: /usr/bin/chromedriver
